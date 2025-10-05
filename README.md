@@ -1,5 +1,5 @@
 # CatOS
-The catOS operating system!
+The CatOS operating system!
 
 
 # To Run:
