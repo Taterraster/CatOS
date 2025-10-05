@@ -46,7 +46,6 @@ iso: all
 	'  boot' \
 	'}' > iso/boot/grub/grub.cfg
 	grub-mkrescue -o $(ISO) iso || true
-
 clean:
 	rm -rf build iso
 info:
@@ -59,4 +58,9 @@ info:
 	@echo "Assembler:       $(AS)"
 	@echo "Objs:            $(OBJS)"
 	@echo "CatOS a hobby kernel in C++ by Taterr"
+ws:
+	make iso
+	mv $(ISO) ../CatOS
+	rm -rf iso build
+
 .PHONY: all clean dirs iso info
