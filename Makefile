@@ -63,4 +63,4 @@ ws:
 	mv $(ISO) ../CatOS
 	rm -rf iso build
 
-.PHONY: all clean dirs iso info
+.PHONY: all clean dirs iso info ws
