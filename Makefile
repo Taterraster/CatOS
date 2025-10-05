@@ -3,7 +3,7 @@
 OUTDIR := build
 SRCDIR := src
 KERNEL := $(OUTDIR)/catOS.bin
-ISO    := iso/catOS.iso
+ISO    := iso/CatOS.iso
 
 AS      := as
 LD      := ld
