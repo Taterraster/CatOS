@@ -1,65 +1,69 @@
 
+CXX = g++
+AS = as
+LD = ld
 
-OUTDIR := build
-SRCDIR := src
-KERNEL := $(OUTDIR)/catOS.bin
-ISO    := iso/CatOS.iso
+CXXFLAGS = -std=gnu++17 -ffreestanding -fno-exceptions -fno-rtti \
+	-nostdlib -fno-builtin -m32 -Wall -Wextra
 
-AS      := as
-LD      := ld
-CXX     := g++
-OBJCOPY := objcopy
+LDFLAGS = -m elf_i386 -T src/linker.ld --nmagic
 
-CXXFLAGS := -std=gnu++17 -ffreestanding -fno-exceptions -fno-rtti -nostdlib -fno-builtin -m32 -Wall -Wextra
-LDFLAGS  := -m elf_i386 -T $(SRCDIR)/linker.ld --nmagic
+OBJS = build/kernel.o \
+	build/vga.o \
+	build/boot.o \
+	build/keyboard.o \
+	build/catcli.o \
+	build/string.o \
+	build/ports.o \
+	build/fs.o
 
-SRCS := $(SRCDIR)/kernel.cpp $(SRCDIR)/vga.cpp $(SRCDIR)/boot.S $(SRCDIR)/keyboard.cpp $(SRCDIR)/catcli.cpp $(SRCDIR)/string.cpp $(SRCDIR)/ports.cpp
-OBJS = build/kernel.o build/vga.o build/boot.o build/keyboard.o build/catcli.o build/string.o build/ports.o
+ELF = build/catOS.elf
+ISO = iso/CatOS.iso
 
 
-build/ports.o: src/ports.cpp
-	g++ -std=gnu++17 -ffreestanding -fno-exceptions -fno-rtti \
-	-nostdlib -fno-builtin -m32 -Wall -Wextra -c src/ports.cpp -o build/ports.o
+BUILD_DIR = build
 
-all: dirs $(KERNEL)
-	@echo "catOS built: $(KERNEL)"
 
-dirs:
-	mkdir -p $(OUTDIR) iso
+$(OBJS): | $(BUILD_DIR)
 
-$(OUTDIR)/%.o: $(SRCDIR)/%.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
-$(OUTDIR)/boot.o: $(SRCDIR)/boot.S
+
+all: iso
+
+
+build/boot.o: src/boot.S
 	$(AS) --32 $< -o $@
 
-$(KERNEL): $(OBJS)
-	$(LD) $(LDFLAGS) $(OBJS) -o $(OUTDIR)/catOS.elf
-	$(OBJCOPY) -O binary $(OUTDIR)/catOS.elf $(KERNEL)
+build/%.o: src/%.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-iso: all
+
+$(ELF): $(OBJS)
+	$(LD) $(LDFLAGS) $(OBJS) -o $(ELF)
+
+
+iso:$(ELF)
 	mkdir -p iso/boot/grub
-	cp $(OUTDIR)/catOS.elf iso/boot/catOS.elf
-	printf '%s\n' \
-	'menuentry "CatOS" {' \
-	'  multiboot /boot/catOS.elf' \
-	'  boot' \
-	'}' > iso/boot/grub/grub.cfg
-	grub-mkrescue -o $(ISO) iso || true
+	cp $(ELF) iso/boot/catOS.elf
+	echo 'set timeout=0' > iso/boot/grub/grub.cfg
+	echo 'set default=0' >> iso/boot/grub/grub.cfg
+	echo 'menuentry "CatOS" {' >> iso/boot/grub/grub.cfg
+	echo '  multiboot /boot/catOS.elf' >> iso/boot/grub/grub.cfg
+	echo '  boot' >> iso/boot/grub/grub.cfg
+	echo '}' >> iso/boot/grub/grub.cfg
+	grub-mkrescue -o $(ISO) iso || echo "grub-mkrescue failed; you can still run qemu with the kernel ELF"
+
+
+
 clean:
 	rm -rf build iso
-	rm CatOS.iso
-info:
-	@echo "Build directory: $(OUTDIR)"
-	@echo "Kernel binary:   $(KERNEL)"
-	@echo "ISO image:       $(ISO)"
-	@echo "Source files:    $(SRCDIR)"
-	@echo "Compiler:        $(CXX)"
-	@echo "Linker:          $(LD)"
-	@echo "Assembler:       $(AS)"
-	@echo "Objs:            $(OBJS)"
-	@echo "CatOS a hobby kernel in C++ by Taterr"
-run:
+
+
+run: 
+	make clean
+	make iso
 	qemu-system-i386 -cdrom $(ISO)
 
-.PHONY: all clean dirs iso info run
+.PHONY: all iso run clean

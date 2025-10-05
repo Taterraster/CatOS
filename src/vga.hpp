@@ -19,7 +19,7 @@ enum VGAColor {
     VGA_COLOR_LIGHT_BROWN = 14,
     VGA_COLOR_WHITE = 15
 };
-extern "C" void vga_putc(char c);
+extern "C" void vga_putchar(char c);
 extern "C" void vga_print(const char* str);
 extern "C" void vga_println(const char* str);
 extern "C" void vga_clear();

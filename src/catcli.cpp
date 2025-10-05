@@ -1,30 +1,90 @@
 #include "catcli.hpp"
-#include "keyboard.hpp"
 #include "vga.hpp"
-#include <stdint.h>
+#include "keyboard.hpp"
+#include "string.hpp"
+#include "fs.hpp"
 #include <cstring>
+void handle_command(const char* cmdline) {
+    char buffer[128];
+    strcpy(buffer, cmdline);
+    char* cmd = strtok(buffer, " ");
 
-static bool running = true;
+    if (!cmd) return;
 
-// --- Print CLI prompt ---
-static void print_prompt() {
-    vga_print("cat> ");
-}
-
-// --- Handle CLI commands ---
-static void handle_command(const char* cmd) {
-    if (!strcmp(cmd, "help")) {
-        vga_set_color(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
-        vga_println("Commands:\n help,\n about,\n clear,\n version,\n kernelinfo");
-        vga_set_color(VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-    } else if (!strcmp(cmd, "version")|| !strcmp(cmd, "about")) {
-        vga_println("CatOS Alpha Pre v1.0.0 Gamma");
-    } else if (!strcmp(cmd, "clear")) {
+    if (strcmp(cmd, "help") == 0) {
+        vga_println("Commands: help, clear, ls, mkdir, rmdir, cd, pwd, touch, rm, cat, echo, version");
+    }
+    else if (strcmp(cmd, "clear") == 0) {
         vga_clear();
-    }else if (!strcmp(cmd, "")) {
+    }
+    else if (strcmp(cmd, "mkdir") == 0) {
+        char* name = strtok(nullptr, " ");
+        if (!name) { vga_println("Usage: mkdir <folder>"); return; }
+        int res = fs_mkdir(name);
+        if (res == 0) vga_println("Folder created.");
+        else vga_println("Failed to create folder.");
+    }
+    else if (strcmp(cmd, "rmdir") == 0) {
+        char* name = strtok(nullptr, " ");
+        if (!name) { vga_println("Usage: rmdir <folder>"); return; }
+        int res = fs_rmdir(name);
+        if (res == 0) vga_println("Folder removed.");
+        else if (res == -2) vga_println("Folder not empty!");
+        else vga_println("Failed to remove folder.");
+    }
+    else if (strcmp(cmd, "cd") == 0) {
+        char* name = strtok(nullptr, " ");
+        if (!name) { vga_println("Usage: cd <folder>"); return; }
+        int res = fs_cd(name);
+        if (res == 0) {
+            vga_print("Current dir: ");
+            vga_println(fs_pwd());
+        } else vga_println("Directory not found.");
+    }
+    else if (strcmp(cmd, "ls") == 0) {
+        fs_ls();
+    }
+    else if (strcmp(cmd, "pwd") == 0) {
+        vga_println(fs_pwd());
+    }
+    else if (strcmp(cmd, "touch") == 0) {
+        char* name = strtok(nullptr, " ");
+        if (!name) { vga_println("Usage: touch <file>"); return; }
+        if (fs_touch(name) == 0) vga_println("File created.");
+        else vga_println("Failed to create file.");
+    }
+    else if (strcmp(cmd, "rm") == 0) {
+        char* name = strtok(nullptr, " ");
+        if (!name) { vga_println("Usage: rm <file>"); return; }
+        if (fs_rm(name) == 0) vga_println("File removed.");
+        else vga_println("Failed to remove file.");
+    }
+    else if (strcmp(cmd, "echo") == 0) {
+        char* text = strtok(nullptr, ">");
+        if (!text) { vga_println("Usage: echo <text> > <file>"); return; }
 
-    }else if (!strcmp(cmd, "kernelinfo")) {
-        vga_println("CatOS Kernel made by Taterr");
+        // Parse file name after '>'
+        char* file = strtok(nullptr, " ");
+        if (!file) { vga_println("Usage: echo <text> > <file>"); return; }
+
+        // Trim leading space
+        while (*file == ' ') file++;
+
+        if (fs_write(file, text) == 0) vga_println("Written to file.");
+        else vga_println("Failed to write file.");
+    }
+    else if (strcmp(cmd, "cat") == 0) {
+        char* name = strtok(nullptr, " ");
+        if (!name) { vga_println("Usage: cat <file>"); return; }
+        const char* content = fs_read(name);
+        if (!content) vga_println("File not found.");
+        else vga_println(content);
+    }
+    else if (strcmp(cmd, "version") == 0){
+        vga_println("CatOS Alpha Pre v1.0.0 Delta");
+    }
+    else if (strcmp(cmd, "") == 0){
+        
     }
     else {
         vga_print("Unknown command: ");
@@ -32,103 +92,15 @@ static void handle_command(const char* cmd) {
     }
 }
 
-// --- Main CLI loop ---
-#define HISTORY_SIZE 5
+void catcli_start() {
+    vga_set_color(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
+    vga_println("Welcome To CatOS");
+    vga_set_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
 
-static char history[HISTORY_SIZE][128]; 
-static int history_count = 0;           
-static int history_index = 0;           
-extern "C" void catcli_start() {
-    running = true;
-    vga_clear();
-    vga_set_color(VGA_COLOR_LIGHT_BROWN, VGA_COLOR_LIGHT_BLUE);
-    vga_println("Welcome to CatCLI!");
-    vga_set_color(VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-    print_prompt();
-
-    char buffer[128];
-    int index = 0;
-
-    while (running) {
-    char c = keyboard_getchar();
-
-    if (c == '\x01') { // Up arrow
-        if (history_count == 0) continue;
-
-        // Move history index up
-        if (history_index > 0) history_index--;
-        else history_index = 0;
-
-        // Clear current input
-        while (index > 0) {
-            vga_backspace();
-            index--;
-        }
-
-        // Copy history to buffer and print
-        strcpy(buffer, history[history_index]);
-        index = strlen(buffer);
-        vga_print(buffer);
-        continue;
-    }
-
-    if (c == '\x02') { // Down arrow
-        if (history_count == 0) continue;
-
-        // Move history index down
-        if (history_index < history_count - 1) history_index++;
-        else {
-            // Clear input if past last history
-            index = 0;
-            buffer[0] = '\0';
-            vga_print(""); // optional: may clear line visually
-            continue;
-        }
-
-        // Clear current input
-        while (index > 0) {
-            vga_backspace();
-            index--;
-        }
-
-        // Copy history to buffer and print
-        strcpy(buffer, history[history_index]);
-        index = strlen(buffer);
-        vga_print(buffer);
-        continue;
-    }
-
-    if (c == '\n') { // Enter
-        buffer[index] = '\0';
-        vga_println("");
-        handle_command(buffer);
-
-        // Save to history
-        if (history_count < HISTORY_SIZE) {
-            strcpy(history[history_count], buffer);
-            history_count++;
-        } else {
-            // Shift history up if full
-            for (int i = 1; i < HISTORY_SIZE; i++) {
-                strcpy(history[i - 1], history[i]);
-            }
-            strcpy(history[HISTORY_SIZE - 1], buffer);
-        }
-        history_index = history_count; // reset browsing index
-
-        index = 0;
-        print_prompt();
-    } else if (c == '\b') { // Backspace
-        if (index > 0) {
-            index--;
-            vga_backspace();
-        }
-    } else if (c >= 32 && c <= 126) { // Printable characters
-        if (index < 127) {
-            buffer[index++] = c;
-            vga_putc(c);
-        }
+    char input[128];
+    while (1) {
+        vga_print("cat>");
+        keyboard_read_line(input, sizeof(input));
+        handle_command(input);
     }
 }
-}
-

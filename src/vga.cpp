@@ -52,52 +52,39 @@ extern "C" void vga_clear() {
 }
 
 // Output a single character to the screen
-extern "C" void vga_putc(char c) {
+void vga_putchar(char c) {
     if (c == '\n') {
-        vga_row++;
-        vga_col = 0;
+        cursor_row++;
+        cursor_col = 0;
     } else if (c == '\b') {
-        if (vga_col > 0) {
-            vga_col--;
-            vga_buffer[vga_row * VGA_WIDTH + vga_col] = (uint16_t)' ' | ((uint16_t)vga_color << 8);
+        if (cursor_col > 0) {
+            cursor_col--;
+            vga_buffer[cursor_row * VGA_WIDTH + cursor_col] = vga_entry(' ', vga_color);
         }
     } else {
-        vga_buffer[vga_row * VGA_WIDTH + vga_col] = (uint16_t)c | ((uint16_t)vga_color << 8);
-        vga_col++;
-        if (vga_col >= VGA_WIDTH) {
-            vga_col = 0;
-            vga_row++;
+        vga_buffer[cursor_row * VGA_WIDTH + cursor_col] = vga_entry(c, vga_color);
+        cursor_col++;
+        if (cursor_col >= VGA_WIDTH) {
+            cursor_col = 0;
+            cursor_row++;
         }
     }
 
-    // Scroll if needed
-    if (vga_row >= VGA_HEIGHT) {
-        for (size_t y = 1; y < VGA_HEIGHT; y++) {
-            for (size_t x = 0; x < VGA_WIDTH; x++) {
-                vga_buffer[(y - 1) * VGA_WIDTH + x] = vga_buffer[y * VGA_WIDTH + x];
-            }
-        }
-        // Clear last line
-        for (size_t x = 0; x < VGA_WIDTH; x++) {
-            vga_buffer[(VGA_HEIGHT - 1) * VGA_WIDTH + x] = (uint16_t)' ' | ((uint16_t)vga_color << 8);
-        }
-        vga_row = VGA_HEIGHT - 1;
-    }
-
-    update_cursor();
+    if (cursor_row >= VGA_HEIGHT)
+        cursor_row = 0; // Simple wraparound; you can add scrolling later
 }
 
 // Print a string (no newline)
 extern "C" void vga_print(const char* str) {
     for (size_t i = 0; str[i] != '\0'; i++) {
-        vga_putc(str[i]);
+        vga_putchar(str[i]);
     }
 }
 
 // Print a string + newline
 extern "C" void vga_println(const char* str) {
     vga_print(str);
-    vga_putc('\n');
+    vga_putchar('\n');
 }
 
 // Move cursor back one space (for backspace)

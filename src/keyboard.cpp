@@ -1,5 +1,6 @@
 #include "keyboard.hpp"
 #include "ports.hpp"
+#include "vga.hpp"
 #include <stdint.h>
 
 static bool shift_pressed = false;
@@ -73,4 +74,44 @@ char keyboard_getchar() {
     else
         return keymap[scancode];
 }
+}
+static char last_char = 0;
+
+char keyboard_read_char() {
+    unsigned char scancode = inb(0x60);
+    // Simplify: only handle basic ASCII for now
+    if (scancode >= 0x02 && scancode <= 0x0D) return '0' + (scancode - 0x02);
+    if (scancode == 0x1C) return '\n';
+    return 0;
+}
+
+extern "C" void keyboard_read_line(char* buffer, int max) {
+    if (!buffer || max <= 0) return;
+
+    int i = 0;
+    while (1) {
+        char c = keyboard_getchar();
+        if (!c) continue;
+
+        if (c == '\n') {
+            buffer[i] = '\0';
+            vga_putchar('\n');
+            return;
+        } 
+        else if (c == '\b') {
+            if (i > 0) {
+                --i;
+                // Erase character visually
+                vga_putchar('\b');
+                vga_putchar(' ');
+                vga_putchar('\b');
+            }
+        } 
+        else if ((unsigned char)c >= 32 && (unsigned char)c <= 126) {
+            if (i < max - 1) {
+                buffer[i++] = c;
+                vga_putchar(c);
+            }
+        }
+    }
 }
