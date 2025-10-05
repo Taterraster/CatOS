@@ -16,7 +16,7 @@ static void handle_command(const char* cmd) {
     if (!strcmp(cmd, "help")) {
         vga_println("Commands: help, about, clear, version, kernelinfo");
     } else if (!strcmp(cmd, "version")|| !strcmp(cmd, "about")) {
-        vga_println("catOS Alpha Pre v1.0.0 Beta");
+        vga_println("CatOS Alpha Pre v1.0.0 Beta");
     } else if (!strcmp(cmd, "clear")) {
         vga_clear();
     }else if (!strcmp(cmd, "")) {
