@@ -1,68 +1,101 @@
-
+#include <stdint.h>
+#include <cstddef>  
 #include "vga.hpp"
 
+#define VGA_WIDTH 80
+#define VGA_HEIGHT 25
+#define VGA_MEMORY 0xB8000
 
-namespace catos {
+// VGA memory buffer
+static uint16_t* const vga_buffer = (uint16_t*)VGA_MEMORY;
 
+// Current cursor position
+static uint8_t vga_row = 0;
+static uint8_t vga_col = 0;
 
-    static constexpr uint16_t VGA_WIDTH = 80;
-    static constexpr uint16_t VGA_HEIGHT = 25;
-    static volatile uint16_t* const VGA_BUFFER = (uint16_t*)0xB8000;
+// Default color: white on black
+static uint8_t vga_color = 0x0F;
 
+// Low-level port I/O for the cursor
+static inline void outb(uint16_t port, uint8_t val) {
+    asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
+}
 
-    static uint16_t cursor_x = 0;
-    static uint16_t cursor_y = 0;
+// Update hardware cursor to match vga_row/col
+static void update_cursor() {
+    uint16_t pos = vga_row * VGA_WIDTH + vga_col;
+    outb(0x3D4, 0x0F);
+    outb(0x3D5, (uint8_t)(pos & 0xFF));
+    outb(0x3D4, 0x0E);
+    outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
+}
 
-
-    static inline uint16_t make_entry(char c, uint8_t attr) {
-        return (uint16_t)c | (uint16_t)attr << 8;
-    }
-
-
-    void VGA::clear() {
-        const uint16_t blank = make_entry(' ', 0x07);
-        for (uint32_t i = 0; i < VGA_WIDTH * VGA_HEIGHT; ++i) {
-            VGA_BUFFER[i] = blank;
-    }
-        cursor_x = cursor_y = 0;
-    }
-
-
-    void VGA::putchar(char c) {
-        if (c == '\n') {
-            cursor_x = 0;
-            cursor_y++;
-        } else if (c == '\r') {
-            cursor_x = 0;
-        } else {
-        const uint16_t idx = cursor_y * VGA_WIDTH + cursor_x;
-        VGA_BUFFER[idx] = make_entry(c, 0x07);
-        cursor_x++;
-        if (cursor_x >= VGA_WIDTH) {
-            cursor_x = 0;
-            cursor_y++;
-        }
-        }
-    if (cursor_y >= VGA_HEIGHT) {
-
-    for (uint32_t row = 1; row < VGA_HEIGHT; ++row) {
-        for (uint32_t col = 0; col < VGA_WIDTH; ++col) {
-            VGA_BUFFER[(row - 1) * VGA_WIDTH + col] = VGA_BUFFER[row * VGA_WIDTH + col];
+// Clear the screen and reset cursor
+extern "C" void vga_clear() {
+    for (size_t y = 0; y < VGA_HEIGHT; y++) {
+        for (size_t x = 0; x < VGA_WIDTH; x++) {
+            vga_buffer[y * VGA_WIDTH + x] = (uint16_t)' ' | ((uint16_t)vga_color << 8);
         }
     }
+    vga_row = 0;
+    vga_col = 0;
+    update_cursor();
+}
 
-    const uint16_t blank = make_entry(' ', 0x07);
-    for (uint32_t col = 0; col < VGA_WIDTH; ++col) {
-        VGA_BUFFER[(VGA_HEIGHT - 1) * VGA_WIDTH + col] = blank;
+// Output a single character to the screen
+extern "C" void vga_putc(char c) {
+    if (c == '\n') {
+        vga_row++;
+        vga_col = 0;
+    } else if (c == '\b') {
+        if (vga_col > 0) {
+            vga_col--;
+            vga_buffer[vga_row * VGA_WIDTH + vga_col] = (uint16_t)' ' | ((uint16_t)vga_color << 8);
+        }
+    } else {
+        vga_buffer[vga_row * VGA_WIDTH + vga_col] = (uint16_t)c | ((uint16_t)vga_color << 8);
+        vga_col++;
+        if (vga_col >= VGA_WIDTH) {
+            vga_col = 0;
+            vga_row++;
+        }
     }
-    cursor_y = VGA_HEIGHT - 1;
+
+    // Scroll if needed
+    if (vga_row >= VGA_HEIGHT) {
+        for (size_t y = 1; y < VGA_HEIGHT; y++) {
+            for (size_t x = 0; x < VGA_WIDTH; x++) {
+                vga_buffer[(y - 1) * VGA_WIDTH + x] = vga_buffer[y * VGA_WIDTH + x];
+            }
+        }
+        // Clear last line
+        for (size_t x = 0; x < VGA_WIDTH; x++) {
+            vga_buffer[(VGA_HEIGHT - 1) * VGA_WIDTH + x] = (uint16_t)' ' | ((uint16_t)vga_color << 8);
+        }
+        vga_row = VGA_HEIGHT - 1;
     }
+
+    update_cursor();
+}
+
+// Print a string (no newline)
+extern "C" void vga_print(const char* str) {
+    for (size_t i = 0; str[i] != '\0'; i++) {
+        vga_putc(str[i]);
     }
+}
 
+// Print a string + newline
+extern "C" void vga_println(const char* str) {
+    vga_print(str);
+    vga_putc('\n');
+}
 
-    void VGA::write(const char* s) {
-        for (const char* p = s; *p; ++p) putchar(*p);
+// Move cursor back one space (for backspace)
+extern "C" void vga_backspace() {
+    if (vga_col > 0) {
+        vga_col--;
+        vga_buffer[vga_row * VGA_WIDTH + vga_col] = (uint16_t)' ' | ((uint16_t)vga_color << 8);
+        update_cursor();
     }
-
-
-} // namespace catos
+}

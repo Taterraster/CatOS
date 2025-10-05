@@ -13,8 +13,13 @@ OBJCOPY := objcopy
 CXXFLAGS := -std=gnu++17 -ffreestanding -fno-exceptions -fno-rtti -nostdlib -fno-builtin -m32 -Wall -Wextra
 LDFLAGS  := -m elf_i386 -T $(SRCDIR)/linker.ld --nmagic
 
-SRCS := $(SRCDIR)/kernel.cpp $(SRCDIR)/vga.cpp
-OBJS := $(patsubst $(SRCDIR)/%.cpp,$(OUTDIR)/%.o,$(SRCS)) $(OUTDIR)/boot.o
+SRCS := $(SRCDIR)/kernel.cpp $(SRCDIR)/vga.cpp $(SRCDIR)/boot.S $(SRCDIR)/keyboard.cpp $(SRCDIR)/catcli.cpp $(SRCDIR)/string.cpp $(SRCDIR)/ports.cpp
+OBJS = build/kernel.o build/vga.o build/boot.o build/keyboard.o build/catcli.o build/string.o build/ports.o
+
+
+build/ports.o: src/ports.cpp
+	g++ -std=gnu++17 -ffreestanding -fno-exceptions -fno-rtti \
+	-nostdlib -fno-builtin -m32 -Wall -Wextra -c src/ports.cpp -o build/ports.o
 
 all: dirs $(KERNEL)
 	@echo "catOS built: $(KERNEL)"
@@ -36,7 +41,7 @@ iso: all
 	mkdir -p iso/boot/grub
 	cp $(OUTDIR)/catOS.elf iso/boot/catOS.elf
 	printf '%s\n' \
-	'menuentry "catOS" {' \
+	'menuentry "CatOS" {' \
 	'  multiboot /boot/catOS.elf' \
 	'  boot' \
 	'}' > iso/boot/grub/grub.cfg
@@ -50,4 +55,4 @@ info:
 	@echo "ISO image:       $(ISO)"
 	@echo "Source files:    $(SRCDIR)"
 	@echo "CatOS a hobby kernel in C++ by Taterr"
-.PHONY: all clean dirs iso
+.PHONY: all clean dirs iso info
