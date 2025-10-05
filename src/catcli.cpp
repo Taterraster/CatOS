@@ -14,7 +14,7 @@ static void print_prompt() {
 // --- Handle CLI commands ---
 static void handle_command(const char* cmd) {
     if (!strcmp(cmd, "help")) {
-        vga_println("Commands: help, about, clear, halt");
+        vga_println("Commands: help, about, clear, version, kernelinfo");
     } else if (!strcmp(cmd, "version")|| !strcmp(cmd, "about")) {
         vga_println("catOS Alpha Pre v1.0.0 Beta");
     } else if (!strcmp(cmd, "clear")) {
@@ -35,6 +35,7 @@ extern "C" void catcli_start() {
     running = true;
     vga_clear();
     vga_println("Welcome to CatCLI!");
+    vga_println("Type 'help' for a list of commands.");
     print_prompt();
 
     char buffer[128];
