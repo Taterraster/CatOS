@@ -8,13 +8,22 @@
 
 // VGA memory buffer
 static uint16_t* const vga_buffer = (uint16_t*)VGA_MEMORY;
+static size_t cursor_row = 0;
+static size_t cursor_col = 0;
+static uint8_t vga_color = (VGA_COLOR_LIGHT_GREY | (VGA_COLOR_BLACK << 4));
 
+static inline uint16_t vga_entry(unsigned char c, uint8_t color) {
+    return (uint16_t)c | ((uint16_t)color << 8);
+}
+
+void vga_set_color(uint8_t fg, uint8_t bg) {
+    vga_color = fg | (bg << 4);
+}
 // Current cursor position
 static uint8_t vga_row = 0;
 static uint8_t vga_col = 0;
 
 // Default color: white on black
-static uint8_t vga_color = 0x0F;
 
 // Low-level port I/O for the cursor
 static inline void outb(uint16_t port, uint8_t val) {

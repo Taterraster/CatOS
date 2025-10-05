@@ -48,6 +48,7 @@ iso: all
 	grub-mkrescue -o $(ISO) iso || true
 clean:
 	rm -rf build iso
+	rm CatOS.iso
 info:
 	@echo "Build directory: $(OUTDIR)"
 	@echo "Kernel binary:   $(KERNEL)"
@@ -58,9 +59,7 @@ info:
 	@echo "Assembler:       $(AS)"
 	@echo "Objs:            $(OBJS)"
 	@echo "CatOS a hobby kernel in C++ by Taterr"
-ws:
-	make iso
-	mv $(ISO) ../CatOS
-	rm -rf iso build
+run:
+	qemu-system-i386 -cdrom $(ISO)
 
-.PHONY: all clean dirs iso info ws
+.PHONY: all clean dirs iso info run

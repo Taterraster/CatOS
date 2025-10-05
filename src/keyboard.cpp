@@ -1,47 +1,76 @@
 #include "keyboard.hpp"
-#include "vga.hpp"
+#include "ports.hpp"
 #include <stdint.h>
 
-// I/O port access
-static inline uint8_t inb(uint16_t port) {
-    uint8_t ret;
-    asm volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
-    return ret;
-}
+static bool shift_pressed = false;
 
-static inline void outb(uint16_t port, uint8_t val) {
-    asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
-
-// US QWERTY scancode set 1
-static const char scancode_table[128] = {
-    0,  27, '1','2','3','4','5','6','7','8','9','0','-','=', '\b',
+static const char keymap[128] = {
+    0,  27, '1','2','3','4','5','6','7','8','9','0','-','=','\b',
     '\t','q','w','e','r','t','y','u','i','o','p','[',']','\n', 0,
-    'a','s','d','f','g','h','j','k','l',';','\'','`',  0, '\\',
-    'z','x','c','v','b','n','m',',','.','/',  0, '*',  0, ' ',
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    'a','s','d','f','g','h','j','k','l',';','\'','`', 0,'\\',
+    'z','x','c','v','b','n','m',',','.','/', 0, '*', 0, ' ',
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0
 };
 
-// Initialize PS/2 keyboard (optional)
-extern "C" void keyboard_init() {
-    // Flush any pending data
-    while (inb(0x64) & 1) inb(0x60);
+// Shifted characters map
+static const char keymap_shift[128] = {
+    0, 27, '!','@','#','$','%','^','&','*','(',')','_','+','\b',
+    '\t','Q','W','E','R','T','Y','U','I','O','P','{','}','\n', 0,
+    'A','S','D','F','G','H','J','K','L',':','"','~',0,'|',
+    'Z','X','C','V','B','N','M','<','>','?',0, '*', 0, ' ',
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0
+};
+
+// Read scancode from keyboard
+static uint8_t keyboard_read_scancode() {
+    while (!(inb(0x64) & 1));
+    return inb(0x60);
 }
 
-// Wait for a key press and return it as ASCII
-extern "C" char keyboard_getchar() {
-    uint8_t scancode = 0;
-    do {
-        // Wait for a scancode
-        while (!(inb(0x64) & 1));
+// Initialize keyboard (currently nothing to init)
+void keyboard_init() {
+    // Future: enable interrupts if needed
+}
 
-        scancode = inb(0x60);
+// Return next character (blocking)
+char keyboard_getchar() {
+       static bool shift_pressed = false;
+    static bool extended = false; 
 
-        // Ignore break codes (key release)
-        if (scancode & 0x80) continue;
+    uint8_t scancode = 0;  
+    while (1) {
+    scancode = keyboard_read_scancode();
 
-        if (scancode < 128)
-            return scancode_table[scancode];
+    if (scancode == 0xE0) { // start of extended key
+        extended = true;
+        continue;
+    }
 
-    } while (1);
+    // Shift pressed/released
+    if (scancode == 0x2A || scancode == 0x36) {
+        shift_pressed = true; continue;
+    }
+    if (scancode == 0xAA || scancode == 0xB6) {
+        shift_pressed = false; continue;
+    }
+
+    // Arrow keys (extended)
+    if (extended) {
+        extended = false;
+        if (scancode == 0x48) return '\x01'; // Up arrow -> special code 1
+        if (scancode == 0x50) return '\x02'; // Down arrow -> special code 2 (optional)
+        continue;
+    }
+
+    if (scancode > 127) continue;
+
+    if (shift_pressed)
+        return keymap_shift[scancode];
+    else
+        return keymap[scancode];
+}
 }
