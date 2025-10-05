@@ -22,7 +22,7 @@ static void handle_command(const char* cmd) {
     }else if (!strcmp(cmd, "")) {
 
     }else if (!strcmp(cmd, "kernelinfo")) {
-        vga_println("catOS Kernel made by Taterr");
+        vga_println("CatOS Kernel made by Taterr");
     }
     else {
         vga_print("Unknown command: ");
