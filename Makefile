@@ -54,5 +54,9 @@ info:
 	@echo "Kernel binary:   $(KERNEL)"
 	@echo "ISO image:       $(ISO)"
 	@echo "Source files:    $(SRCDIR)"
+	@echo "Compiler:        $(CXX)"
+	@echo "Linker:          $(LD)"
+	@echo "Assembler:       $(AS)"
+	@echo "Objs:            $(OBJS)"
 	@echo "CatOS a hobby kernel in C++ by Taterr"
 .PHONY: all clean dirs iso info
